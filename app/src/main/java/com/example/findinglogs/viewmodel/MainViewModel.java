@@ -15,8 +15,10 @@ import com.example.findinglogs.model.repo.remote.api.WeatherCallback;
 import com.example.findinglogs.model.util.Logger;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainViewModel extends AndroidViewModel {
 
@@ -41,28 +43,35 @@ public class MainViewModel extends AndroidViewModel {
 
     private void startFetching() {
         fetchAllForecasts();
-        handler.postDelayed(fetchRunnable, FETCH_INTERVAL);
     }
 
     private void fetchAllForecasts() {
+        handler.removeCallbacks(fetchRunnable);
         if (Logger.ISLOGABLE) Logger.d(TAG, "fetchAllForecasts()");
         HashMap<String, String> localizations = mRepository.getLocalizations();
-        List<Weather> updatedList = new ArrayList<>();
+        List<Weather> updatedList = Collections.synchronizedList(new ArrayList<>());
+        AtomicInteger responseCount = new AtomicInteger(0);
+        int total = localizations.size();
 
         for (String latlon : localizations.values()) {
             mRepository.retrieveForecast(latlon, new WeatherCallback() {
                 @Override
                 public void onSuccess(Weather result) {
                     updatedList.add(result);
-                    if (updatedList.size() == localizations.size()) {
-                        _weatherList.setValue(updatedList);
+                    if (responseCount.incrementAndGet() == total) {
+                        _weatherList.setValue(new ArrayList<>(updatedList));
                         handler.postDelayed(fetchRunnable, FETCH_INTERVAL);
                     }
                 }
 
                 @Override
                 public void onFailure(String error) {
-                    handler.postDelayed(fetchRunnable, FETCH_INTERVAL);
+                    if (responseCount.incrementAndGet() == total) {
+                        if (!updatedList.isEmpty()) {
+                            _weatherList.setValue(new ArrayList<>(updatedList));
+                        }
+                        handler.postDelayed(fetchRunnable, FETCH_INTERVAL);
+                    }
                 }
             });
         }
@@ -72,6 +81,10 @@ public class MainViewModel extends AndroidViewModel {
     protected void onCleared() {
         handler.removeCallbacks(fetchRunnable);
         super.onCleared();
+    }
+
+    public void refresh() {
+        fetchAllForecasts();
     }
 
     public void retrieveForecast(String latLon, WeatherCallback callback) {

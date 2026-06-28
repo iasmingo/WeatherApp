@@ -22,12 +22,13 @@ public class MainActivity extends AppCompatActivity {
     private WeatherListAdapter adapter;
     private final List<Weather> weathers = new ArrayList<>();
     private FloatingActionButton fetchButton;
+    private MainViewModel mainViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        MainViewModel mainViewModel = new ViewModelProvider(this).get(MainViewModel.class);
+        mainViewModel = new ViewModelProvider(this).get(MainViewModel.class);
         RecyclerView recyclerView = findViewById(R.id.recycler_view_weather);
         fetchButton = findViewById(R.id.fetchButton);
         adapter = new WeatherListAdapter(this, weathers);
@@ -35,8 +36,6 @@ public class MainActivity extends AppCompatActivity {
         mainViewModel.getWeatherList().observe(this,
                 weathers -> adapter.updateWeathers(weathers));
 
-        fetchButton.setOnClickListener(v ->
-                Toast.makeText(MainActivity.this, "Not Implemenented yet",
-                Toast.LENGTH_SHORT).show());
+        fetchButton.setOnClickListener(v -> mainViewModel.refresh());
     }
 }
